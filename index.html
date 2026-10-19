@@ -109,7 +109,7 @@ footer a{color:var(--accent);font-weight:600;text-decoration:none}
 <div class="narrow">
 <form id="f" novalidate>
   <label for="tema">Título o tema del vídeo</label>
-  <input id="tema" placeholder="Ej: ¿Cómo funciona la inflación?" required>
+  <input id="tema" maxlength="120" placeholder="Ej: ¿Cómo funciona la inflación?" required>
   <div class="err" id="e-tema">Cuéntame el tema del vídeo.</div>
 
   <label for="dur">Duración del vídeo</label>
@@ -120,25 +120,18 @@ footer a{color:var(--accent);font-weight:600;text-decoration:none}
   </select>
 
   <label for="com">Comentarios o necesidades especiales <small>(opcional)</small></label>
-  <textarea id="com" placeholder="Aspectos que quieres que incluya, tono, público al que va dirigido…"></textarea>
+  <textarea id="com" maxlength="800" placeholder="Aspectos que quieres que incluya, tono, público al que va dirigido…"></textarea>
 
   <label for="mail">Tu email</label>
-  <input id="mail" type="email" inputmode="email" placeholder="tucorreo@ejemplo.com" required>
+  <input id="mail" type="email" maxlength="120" inputmode="email" placeholder="tucorreo@ejemplo.com" required>
   <div class="err" id="e-mail">Escribe un email válido para enviarte el vídeo.</div>
 
+  <div style="position:absolute;left:-9999px;height:0;overflow:hidden" aria-hidden="true"><label for="web">No rellenar</label><input id="web" tabindex="-1" autocomplete="off"></div>
   <div class="price"><span>Total</span><strong id="precio">4,99 €</strong></div>
-  <button class="btn" type="submit">Continuar</button>
-</form>
-
-<div id="done" class="box">
-  <h3>¡Casi listo! 🎉</h3>
-  <p>Revisa tu pedido y completa estos 2 pasos:</p>
-  <pre id="resumen"></pre>
-  <a class="btn alt" id="mailto" href="#" target="_blank" rel="noopener">① Enviar los detalles del pedido</a>
-  <a class="btn" id="pagar" href="#" target="_blank" rel="noopener">② Pagar con Stripe</a>
+  <button class="btn" type="submit">Continuar al pago</button>
   <div class="msg" id="msg">El enlace de pago de este vídeo aún no está configurado.</div>
-  <p class="note">Pago seguro con tarjeta a través de Stripe. · <a href="#" id="volver" style="color:var(--accent)">← Editar pedido</a></p>
-</div>
+  <p class="note">🔒 Pago seguro con tarjeta a través de Stripe. Tu pedido se tramita en cuanto se confirma el pago.</p>
+</form>
 </div>
 
 <h2 id="planes">Planes mensuales</h2>
@@ -151,7 +144,9 @@ footer a{color:var(--accent);font-weight:600;text-decoration:none}
 
 <script>
 // ⚙️ CONFIGURACIÓN
-const MI_EMAIL = "enresumenexplica@gmail.com";
+// Pega aquí la URL de tu Google Apps Script (https://script.google.com/macros/s/.../exec)
+const PEDIDOS_URL = "https://script.google.com/macros/s/AKfycby6pxvlI9addx8lQm-uT2nLi9787Dod78Zny6gmurNDtYIMR45O4f-5eMPb60sI2Y5q/exec";
+const T0 = Date.now();
 const EDITOR = 300; // coste mensual de referencia de un editor
 // Pega aquí tus Payment Links de Stripe (https://buy.stripe.com/...)
 const STRIPE = {
@@ -173,27 +168,28 @@ const steps = [...document.querySelectorAll(".step")]; let k = 0;
 function tick(){ steps.forEach((s,i)=>s.classList.toggle("on",i===k)); k=(k+1)%steps.length; }
 tick(); setInterval(tick, 2200);
 
-// Formulario
+// Formulario: guarda el pedido en el navegador y pasa al pago de Stripe
 const pintaPrecio = () => $("precio").textContent = eur(PRECIO[$("dur").value]);
-$("dur").addEventListener("change", pintaPrecio);
-$("f").addEventListener("submit", e => {
+$("dur").addEventListener("change", pintaPrecio); pintaPrecio();
+$("f").addEventListener("submit", async e => {
   e.preventDefault();
   const tema = $("tema").value.trim(), mail = $("mail").value.trim();
   const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail);
   $("e-tema").style.display = tema ? "none":"block";
   $("e-mail").style.display = ok ? "none":"block";
   if(!tema || !ok) return;
-  const d = $("dur").options[$("dur").selectedIndex].text.split(" · ")[0];
-  const txt = `Tema: ${tema}\nDuración: ${d}\nTotal: ${$("precio").textContent}\nComentarios: ${$("com").value.trim()||"—"}\nEmail del cliente: ${mail}`;
-  $("resumen").textContent = txt;
-  $("mailto").href = `mailto:${MI_EMAIL}?subject=${encodeURIComponent("Pedido de vídeo: "+tema)}&body=${encodeURIComponent(txt)}`;
   const link = STRIPE.video[$("dur").value];
-  $("pagar").href = link ? pagaUrl(link, mail) : "#";
-  $("pagar").onclick = ev => { if(!link){ ev.preventDefault(); $("msg").style.display="block"; } };
-  $("f").style.display="none"; $("done").style.display="block";
-  $("done").scrollIntoView({behavior:"smooth"});
+  if(!link){ $("msg").textContent = "El enlace de pago de este vídeo aún no está configurado."; $("msg").style.display = "block"; return; }
+  $("msg").style.display = "none";
+  const d = $("dur").options[$("dur").selectedIndex].text.split(" · ")[0];
+  if(PEDIDOS_URL){
+    try {
+      await fetch(PEDIDOS_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"},
+        body: JSON.stringify({tema, duracion:d, precio:$("precio").textContent, comentarios:$("com").value.trim(), email:mail, hp:$("web").value, ms:Date.now()-T0})});
+    } catch(_) {}
+  }
+  window.location.href = pagaUrl(link, mail);
 });
-$("volver").addEventListener("click", e => { e.preventDefault(); $("done").style.display="none"; $("f").style.display="block"; });
 
 // Planes
 $("plans").innerHTML = PLANES.map(pl => `
