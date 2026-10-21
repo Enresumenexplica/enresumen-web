@@ -217,5 +217,6 @@ const io = new IntersectionObserver(es => es.forEach(en => { if(en.isIntersectin
   en.target.querySelectorAll(".bar").forEach(b => b.style.width = b.dataset.w + "%"); io.unobserve(en.target);} }), {threshold:.3});
 document.querySelectorAll(".plan").forEach(p => io.observe(p));
 </script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "deca95188e8642c8900f6e1291692895"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
